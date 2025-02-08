@@ -1,15 +1,37 @@
 import { useState, useEffect } from 'react';
 import ProductCard from '../components/ProductCard';
 import WelcomeBanner from '../components/WelcomeBanner';
-import Categories, { CategoryType } from '../components/Categories';
-import { products } from '../data/products';
+import Categories from '../components/Categories';
+import { Product, WishlistItem } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { WishlistItem } from '../types';
+import { fetchProducts } from '../services/api';
+import { adaptProduct } from '../utils/productAdapter';
 
 export default function HomePage() {
   const { user } = useAuth();
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<CategoryType>('All');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const fakeStoreProducts = await fetchProducts();
+        const adaptedProducts = fakeStoreProducts.map(adaptProduct);
+        setProducts(adaptedProducts);
+        setError(null);
+      } catch (err) {
+        setError('Failed to load products. Please try again later.');
+        console.error('Error loading products:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -43,6 +65,28 @@ export default function HomePage() {
   const filteredProducts = products.filter(product => 
     selectedCategory === 'All' || product.category === selectedCategory
   );
+
+  if (loading) {
+    return (
+      <div className="px-4 py-4">
+        <WelcomeBanner />
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="px-4 py-4">
+        <WelcomeBanner />
+        <div className="text-center text-red-600 mt-8">
+          {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 py-4">

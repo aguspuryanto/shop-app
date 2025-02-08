@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Heart, ArrowLeft, Share2, ShoppingCart } from 'lucide-react';
-import { products } from '../data/products';
 import { Product, WishlistItem, Review } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import ImageSlider from '../components/ImageSlider';
 import Reviews from '../components/Reviews';
+import { fetchProductById } from '../services/api';
+import { adaptProduct } from '../utils/productAdapter';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -17,14 +18,31 @@ export default function ProductDetailPage() {
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const foundProduct = products.find(p => p.id === id);
-    if (!foundProduct) {
-      navigate('/');
-      return;
-    }
-    setProduct(foundProduct);
+    const loadProduct = async () => {
+      if (!id) return;
+      
+      try {
+        setLoading(true);
+        const fakeStoreProduct = await fetchProductById(id);
+        if (!fakeStoreProduct) {
+          throw new Error('Product not found');
+        }
+        const adaptedProduct = adaptProduct(fakeStoreProduct);
+        setProduct(adaptedProduct);
+        setError(null);
+      } catch (err) {
+        setError('Failed to load product. Please try again later.');
+        console.error('Error loading product:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProduct();
 
     // Load wishlist
     const storedWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
@@ -34,7 +52,7 @@ export default function ProductDetailPage() {
     const storedReviews = JSON.parse(localStorage.getItem('reviews') || '[]');
     const productReviews = storedReviews.filter((review: Review) => review.productId === id);
     setReviews(productReviews);
-  }, [id, navigate]);
+  }, [id]);
 
   const handleAddReview = (rating: number, comment: string) => {
     if (!user || !product) return;
@@ -110,7 +128,27 @@ export default function ProductDetailPage() {
     }, 500);
   };
 
-  if (!product) return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <p className="text-red-600 text-center mb-4">{error || 'Product not found'}</p>
+        <button
+          onClick={() => navigate(-1)}
+          className="text-indigo-600 hover:text-indigo-800"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white pb-32">
@@ -169,7 +207,7 @@ export default function ProductDetailPage() {
 
           <div className="mt-4">
             <h2 className="text-lg font-semibold text-gray-900">Category</h2>
-            <span className="mt-2 inline-block px-3 py-1 bg-gray-100 text-gray-800 rounded-full">
+            <span className="mt-2 inline px-3 py-1 bg-gray-100 text-gray-800 rounded-full">
               {product.category}
             </span>
           </div>

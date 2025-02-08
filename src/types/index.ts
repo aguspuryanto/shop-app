@@ -11,7 +11,7 @@ export interface Product {
   price: number;
   images: string[];
   description: string;
-  category: 'Software' | 'Ebook' | 'Courses' | 'Source Code' | 'Video';
+  category: string;
 }
 
 export interface WishlistItem {
